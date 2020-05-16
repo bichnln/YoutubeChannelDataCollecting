@@ -8,7 +8,7 @@ class YoutubeAPI:
 
     def get_channel_stats(self, channel_id):
         url = f'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id={channel_id}&key={self.api_key}'
-        print(url)
+        #print(url)
         json_url = requests.get(url)
         data = json.loads(json_url.text)
         # print(data)

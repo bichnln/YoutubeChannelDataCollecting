@@ -1,7 +1,6 @@
 import json
 import pprint
 import requests
-import connection
 from youtube_stats import YoutubeAPI
 from models import Video, Stats 
 from datetime import date, datetime
@@ -13,6 +12,7 @@ with open('youtube_credentials.json') as json_file:
     data = json.load(json_file)
     API_KEY = data['API_KEY']
 
+
 yt = YoutubeAPI(API_KEY)
 
 # create a client connecting to localhost on port 27017
@@ -23,7 +23,9 @@ videoCollection = db['videos']           # store information of videos
 statisticsCollection = db['statistics']  # store statistics data of videos (view count..)
 statsCollection = db['stats'] # store daily stats with name instead of vid
 testing = db['test']
+channelStats = db['channel_stats']
 
+    
 # v is video typed
 # add a video to videoCollection
 def add_videos(v):
@@ -84,12 +86,29 @@ def get_today_stats():
                       data['viewCount'], data['likeCount'], data['dislikeCount'], data['commentCount'])
         add_stats(stats)
 
+def get_daily_channel_stats():
+    with open('dreamcatcher_ids.json') as file_of_ids:
+        data = json.load(file_of_ids)
+        dreamcatcher_channel = data['channel_id']
 
+    cStats = yt.get_channel_stats(dreamcatcher_channel)
+    stats = { "cid": dreamcatcher_channel,
+              "recorded_date": datetime.utcnow(),
+              "viewCount": cStats['viewCount'],
+              "commentCount": cStats['commentCount'],
+              "subscriberCount": cStats['subscriberCount'],
+              "uploadedVideoCount": cStats['videoCount'] }
+
+    channelStats.insert_one(stats)
+    print("Dreamcatcher official channel daily statistics recorded!")
+    print(stats)
 
 
 if __name__ == "__main__":
-    setup_video_profiles_from_playlist_file("dreamcatcher_ids.json")
-    get_today_stats()
+    get_daily_channel_stats
+    # setup_video_profiles_from_playlist_file("dreamcatcher_ids.json")
+    # get_today_stats()
+
     
     
 
