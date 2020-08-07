@@ -1,8 +1,7 @@
 import json
 import pprint
 import requests
-from youtube_stats import YoutubeAPI
-from models import Video, Stats 
+from models import Video, Stats, YoutubeAPI
 from datetime import date, datetime
 from pymongo import MongoClient
 from tqdm import tqdm
@@ -20,9 +19,8 @@ client = MongoClient('localhost', 27017)
 db = client['dreamcatcher']
 
 videoCollection = db['videos']           # store information of videos
-statisticsCollection = db['statistics']  # store statistics data of videos (view count..)
-statsCollection = db['stats'] # store daily stats with name instead of vid
-testing = db['test']
+statsCollection = db['stats']            # store video's daily stats
+
 channelStats = db['channel_stats']
 
     
@@ -43,7 +41,7 @@ def add_videos(v):
 
 # s is Stats typed
 def add_stats(s):
-    if (statisticsCollection.count_documents({"vid": s.vid, "recorded_date": s.recordedDate}) == 0):
+    if (statsCollection.count_documents({"vid": s.vid, "recorded_date": s.recordedDate}) == 0):
         stat = {"vid": s.vid,
                 "recorded_date": s.recordedDate,
                 "viewCount": s.viewCount, 
@@ -82,32 +80,44 @@ def get_today_stats():
     videos = tqdm(videoCollection.find({}))
     for v in videos:
         data = yt.get_video_stats(v['vid'])
-        stats = Stats(v['vid'], now,
-                      data['viewCount'], data['likeCount'], data['dislikeCount'], data['commentCount'])
-        add_stats(stats)
+        try:
+            stats = Stats(v['vid'], now,
+                        data['viewCount'], data['likeCount'], data['dislikeCount'], data['commentCount'])
+            add_stats(stats)
+        except: 
+            print(f'Failed: {v["vid"]}')
 
 def get_daily_channel_stats():
-    with open('dreamcatcher_ids.json') as file_of_ids:
-        data = json.load(file_of_ids)
-        dreamcatcher_channel = data['channel_id']
+    
+    try:
+        with open('dreamcatcher_ids.json') as file_of_ids:
+            data = json.load(file_of_ids)
+            dreamcatcher_channel = data['channel_id']
+            cStats = yt.get_channel_stats(dreamcatcher_channel)
+    except:
+        print('Errors getting data from Youtube API')
 
-    cStats = yt.get_channel_stats(dreamcatcher_channel)
-    stats = { "cid": dreamcatcher_channel,
+    try: 
+        stats = { "cid": dreamcatcher_channel,
               "recorded_date": datetime.utcnow(),
               "viewCount": cStats['viewCount'],
               "commentCount": cStats['commentCount'],
               "subscriberCount": cStats['subscriberCount'],
               "uploadedVideoCount": cStats['videoCount'] }
 
-    channelStats.insert_one(stats)
-    print("Dreamcatcher official channel daily statistics recorded!")
-    print(stats)
+        channelStats.insert_one(stats)
+        print("Dreamcatcher official channel daily statistics recorded!")
+        print(stats)
+    except:
+        print("Errors adding record to database!")
 
 
 if __name__ == "__main__":
-    get_daily_channel_stats
-    # setup_video_profiles_from_playlist_file("dreamcatcher_ids.json")
-    # get_today_stats()
+
+    setup_video_profiles_from_playlist_file('dreamcatcher_ids.json')
+    get_daily_channel_stats()
+    get_today_stats()
+
 
     
     
